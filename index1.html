@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Singa-City Helper Quiz</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 720px;
+      margin: 40px auto;
+      padding: 0 16px 40px;
+      background: #f5f7fb;
+    }
+    #quiz-container {
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+      padding: 24px 24px 28px;
+    }
+
+    /* Progress bar */
+    #progress-wrapper {
+      margin-bottom: 16px;
+    }
+    #progress-text {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    #progress-bar-bg {
+      width: 100%;
+      background: #e3e8f5;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0070f3, #00c2ff);
+      border-radius: 999px;
+      transition: width 0.25s ease-out;
+    }
+
+    .question {
+      font-size: 1.2rem;
+      margin-bottom: 18px;
+      color: #222;
+    }
+    .options {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .options li {
+      margin-bottom: 10px;
+    }
+    .option-btn {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d2d7e5;
+      background: #f8f9ff;
+      cursor: pointer;
+      transition: background 0.16s ease, transform 0.05s ease, box-shadow 0.16s ease;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .option-btn:hover {
+      background: #eef4ff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+    .option-btn:active {
+      transform: scale(0.99);
+    }
+
+    #next-btn {
+      margin-top: 20px;
+      padding: 9px 18px;
+      border-radius: 999px;
+      border: none;
+      background: #0070f3;
+      color: white;
+      cursor: pointer;
+      display: none;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0, 112, 243, 0.3);
+    }
+    #next-btn:hover {
+      background: #005ed0;
+    }
+
+    #result {
+      margin-top: 10px;
+    }
+    #result-title {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #111827;
+    }
+    #result-role {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0070f3;
+      font-size: 1.1rem;
+    }
+    #result-description {
+      margin-bottom: 18px;
+      white-space: pre-line;
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    #all-roles-header {
+      margin-top: 12px;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #222;
+    }
+    #all-roles {
+      margin-top: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      border-radius: 8px;
+      border: 1px solid #e1e4f0;
+      padding: 10px 12px;
+      background: #fafbff;
+      font-size: 0.92rem;
+    }
+    .role-block {
+      margin-bottom: 12px;
+    }
+    .role-block-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    .role-block-text {
+      white-space: pre-line;
+      color: #444;
+    }
+
+    #restart-btn {
+      margin-top: 16px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      border: 1px solid #0070f3;
+      background: white;
+      color: #0070f3;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    #restart-btn:hover {
+      background: #e6f0ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="quiz-container">
+    <!-- Progress (text + bar) -->
+    <div id="progress-wrapper">
+      <div id="progress-text"></div>
+      <div id="progress-bar-bg">
+        <div id="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Question & options -->
+    <div id="question" class="question"></div>
+    <ul id="options" class="options"></ul>
+    <button id="next-btn">Next</button>
+
+    <!-- Result section -->
+    <div id="result" style="display:none;">
+      <div id="result-title">Your Singa-City Helper Role Is:</div>
+      <div id="result-role"></div>
+      <div id="result-description"></div>
+
+      <div id="all-roles-header">Explore all the maritime paths you match with:</div>
+      <div id="all-roles"></div>
+
+      <button id="restart-btn">Restart Quiz</button>
+    </div>
+  </div>
+
+  <script>
+    // ====== ROLES & DESCRIPTIONS ======
+
+    const ROLES = {
+      DESIGN_ENGINEER: "Design Engineer / Operations Specialist",
+      SHIP_BROKER: "Ship Broker",
+      SEAFARER: "Seafarer",
+      VESSEL_TRAFFIC_OFFICER: "Vessel Traffic Officer",
+      PORT_INSPECTOR: "Port Inspector",
+      HYDROGRAPHIC_SURVEYOR: "Hydrographic Surveyor"
+    };
+
+    const roleOrder = [
+      ROLES.DESIGN_ENGINEER,
+      ROLES.SHIP_BROKER,
+      ROLES.SEAFARER,
+      ROLES.VESSEL_TRAFFIC_OFFICER,
+      ROLES.PORT_INSPECTOR,
+      ROLES.HYDROGRAPHIC_SURVEYOR
+    ];
+
+    const mainRoleDescriptions = {
+      [ROLES.DESIGN_ENGINEER]: `
+In Singa-City, you’re the big-brain builder who loves fixing problems and designing smoother systems.
+You enjoy putting creativity, logic and technology together to make things work better.
+
+In Singapore’s maritime world, this lines up with roles like:
+• Design Engineer – imagining and designing smarter, greener ships and systems.
+• Operations Specialist – planning and optimising how things move, using data and digital tools.
+
+You’re the kind who looks at a messy situation and thinks, “Okay, there MUST be a better way.”`,
+      [ROLES.SHIP_BROKER]: `
+In Singa-City, you’re the natural connector. You talk to everyone, build relationships easily,
+and somehow always manage to “close the deal” (or at least settle where to eat).
+
+In Singapore’s maritime world, this is just like a:
+• Ship Broker – a specialist in matching ships and cargo, negotiating contracts,
+  and coordinating with partners all over the world.
+
+You’re persuasive, people-savvy, and comfortable linking up different cultures and interests.`,
+      [ROLES.SEAFARER]: `
+In Singa-City, you’re the adventurer. You don’t mind being out of your comfort zone
+if it means new views, new experiences, and a strong crew beside you.
+
+In Singapore’s maritime world, this is the spirit of a:
+• Seafarer – working on board ships, travelling the world, handling real operations
+  from navigation to cargo and ship maintenance.
+
+You’re resilient, independent, and value both quiet “me-time” and tight teamwork.`,
+      [ROLES.VESSEL_TRAFFIC_OFFICER]: `
+In Singa-City, you’re the calm controller. While others panic, you stay clear-headed,
+scan the whole situation, and guide people safely with firm instructions.
+
+In Singapore’s maritime world, this mirrors a:
+• Vessel Traffic Officer – monitoring and directing ship movements, keeping navigation safe,
+  reacting quickly to bad weather or unexpected incidents.
+
+You’re sharp, vigilant, and comfortable carrying heavy responsibility when it counts.`,
+      [ROLES.PORT_INSPECTOR]: `
+In Singa-City, you’re the safety guardian. You notice risks others miss, and you
+step in to help, making sure rules are followed and people are protected.
+
+In Singapore’s maritime world, that’s just like a:
+• Port Inspector – a first responder when there’s an incident at sea or in port,
+  checking safety, assisting those in distress, and working closely with agencies
+  like the Police Coast Guard.
+
+You’re caring but firm: you want everyone to go home safe.`,
+      [ROLES.HYDROGRAPHIC_SURVEYOR]: `
+In Singa-City, you’re the quiet analyst who loves patterns, maps and hidden details.
+You enjoy understanding what’s happening “beneath the surface”.
+
+In Singapore’s maritime world, this fits a:
+• Hydrographic Surveyor – measuring sea depths, mapping the seabed and gathering data
+  so cartographers can update nautical charts and ships can navigate safely.
+
+You’re precise, analytical, and good at turning invisible data into clear, useful information.`
+    };
+
+    const allRoleDescriptions = {
+      [ROLES.DESIGN_ENGINEER]: `
+You enjoy creative problem-solving and building better systems.
+Maritime link: Design Engineers and Operations Specialists plan, design and run
+smarter, greener and more digital solutions for ships and ports.`,
+      [ROLES.SHIP_BROKER]: `
+You’re people-oriented and persuasive, great at networking and negotiation.
+Maritime link: Ship Brokers connect cargo owners and ships, negotiate deals,
+and work with global partners every day.`,
+      [ROLES.SEAFARER]: `
+You’re adventurous and resilient, happy to face changing conditions with a strong team.
+Maritime link: Seafarers work on board ships, travel to different ports,
+and handle real-world operations and maintenance at sea.`,
+      [ROLES.VESSEL_TRAFFIC_OFFICER]: `
+You stay calm under pressure and like having a clear view of moving parts.
+Maritime link: Vessel Traffic Officers watch over ship movements, give instructions,
+and keep navigation around busy waters safe.`,
+      [ROLES.PORT_INSPECTOR]: `
+You care deeply about safety and don’t mind enforcing rules when needed.
+Maritime link: Port Inspectors are first responders in maritime incidents,
+checking conditions, helping people in distress, and coordinating with authorities.`,
+      [ROLES.HYDROGRAPHIC_SURVEYOR]: `
+You’re analytical and detail-focused, fascinated by data and what it reveals.
+Maritime link: Hydrographic Surveyors measure sea depths, study the seabed,
+and provide vital information for safe navigation and marine planning.`
+    };
+
+    // ====== QUESTIONS ======
+
+    const questions = [
+      {
+        text: "It’s a bright morning in Singa-City. What’s the first thing you feel like doing?",
+        options: [
+          {
+            text: "Sketch out a quick plan for the day with timings, routes, and backup options.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Scroll through your chats, see who’s free to jio for brunch and start lining up meet-ups.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Check the weather app, then throw a towel and spare clothes in your bag “just in case adventure happens”.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Open a bunch of apps (MRT timings, traffic, weather) to map what’s happening across the city.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "At the hawker centre, there’s a crazy long queue at the most popular stall. What do you do?",
+        options: [
+          {
+            text: "Suggest splitting tasks: one queues, one finds seats, one gets drinks; you optimise the “operation”.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Chat with the aunties/uncles in the queue, making everyone laugh so the wait doesn’t feel so long.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Propose exploring a less crowded hawker centre nearby—maybe got hidden gem!",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Observe the flow of people and pick the fastest combination of stalls, giving clear instructions to your friends.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "A sudden thunderstorm hits and you’re stuck in an open area. What happens next?",
+        options: [
+          {
+            text: "You assess the surroundings and guide everyone to safe shelter, checking no one slips or gets drenched.",
+            role: ROLES.PORT_INSPECTOR
+          },
+          {
+            text: "You check live radar and drainage updates, and estimate how long it’ll last, planning an indoor route.",
+            role: ROLES.HYDROGRAPHIC_SURVEYOR
+          },
+          {
+            text: "You treat it like a mini challenge and find a covered, “mostly dry” route using walkways and underpasses.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "You direct people clearly: “Walk slowly, don’t run, watch that slippery patch,” monitoring everyone as you move.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "At the waterfront festival, which game sounds most fun to you?",
+        options: [
+          {
+            text: "A mechanical contraption game where you adjust levers and gears to get a marble to its destination.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "A negotiation game where you trade stickers with strangers to collect a full set faster than others.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "A scavenger hunt that sends you all over the area, following cryptic clues in unexpected places.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "A coordination game where you stand at a “control tower” and guide blindfolded friends through an obstacle maze.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "You notice someone has slipped on the wet floor and looks shaken. What’s your instinctive move?",
+        options: [
+          {
+            text: "Step in and check if they’re okay, get staff or first aid, and make sure proper steps are followed.",
+            role: ROLES.PORT_INSPECTOR
+          },
+          {
+            text: "Reassure them with kind words, keep the mood calm, and help the crowd relax.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Quietly block off the slippery area with chairs or cones so no one else falls, and call for cleanup.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          },
+          {
+            text: "Inspect the area and think how to prevent this next time—better drainage, signage, or flooring.",
+            role: ROLES.DESIGN_ENGINEER
+          }
+        ]
+      },
+      {
+        text: "You have one free hour by the bay. What are you most drawn to do?",
+        options: [
+          {
+            text: "Sit somewhere quiet and observe patterns of water, lights, and people, maybe sketching or jotting ideas.",
+            role: ROLES.HYDROGRAPHIC_SURVEYOR
+          },
+          {
+            text: "Wander further along the promenade, see where the path leads, and just enjoy the breeze.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Strike up conversations with visitors, recommending food spots or photo angles like an unofficial guide.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Find a slightly higher spot and watch everything, mentally tracking cyclists, joggers, and families moving around.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "There’s a short power trip at the festival, lights go out and people seem confused. How do you react?",
+        options: [
+          {
+            text: "Run through scenarios in your head and help organisers find a quick, logical workaround.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Guide people calmly: “Don’t worry, just move this way slowly, follow the signs,” keeping everyone safe.",
+            role: ROLES.PORT_INSPECTOR
+          },
+          {
+            text: "Stay surprisingly calm and even a bit excited—like a survival show—and stick close to your group, ready to move.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Position yourself where you can see multiple directions and monitor what’s happening, ready to react fast.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      },
+      {
+        text: "You decide to pick a new hobby to understand Singa-City better. What do you choose?",
+        options: [
+          {
+            text: "Tinkering with gadgets or coding small tools to track things like traffic, weather, or habits.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Learning negotiation and communication skills through public speaking or role-play.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Kayaking, hiking, or exploring nature trails—anything that lets you explore and push your limits.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Analysing maps or data visualisations about the city’s environment, infrastructure, or water levels.",
+            role: ROLES.HYDROGRAPHIC_SURVEYOR
+          }
+        ]
+      },
+      {
+        text: "You’re in a project team tasked to improve how a big public event is run next year. What role do you take?",
+        options: [
+          {
+            text: "Design the system: layouts, workflows, and maybe mock-ups of digital tools to run the event smoothly.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Talk to sponsors, partners, and stakeholders, keeping everyone connected and on board.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Volunteer to be on-site during the event, moving around to solve issues hands-on as they pop up.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Set up safety rules and monitoring, coordinating between security, crowd control, and emergency contacts.",
+            role: ROLES.PORT_INSPECTOR
+          }
+        ]
+      },
+      {
+        text: "If Singa-City gave you a special mission, which challenge would you choose?",
+        options: [
+          {
+            text: "Design a smarter, greener way for the city to run its events, transport, or energy.",
+            role: ROLES.DESIGN_ENGINEER
+          },
+          {
+            text: "Connect people across the world, negotiating deals so everyone benefits.",
+            role: ROLES.SHIP_BROKER
+          },
+          {
+            text: "Handle the rough stuff on the front lines, going into unpredictable situations and adapting on the go.",
+            role: ROLES.SEAFARER
+          },
+          {
+            text: "Guard the safety and flow of the city, watching over movements and intervening quickly when something goes wrong.",
+            role: ROLES.VESSEL_TRAFFIC_OFFICER
+          }
+        ]
+      }
+    ];
+
+    // ====== STATE ======
+
+    let currentQuestionIndex = 0;
+    let scores = {};
+
+    // ====== DOM ======
+
+    const questionEl = document.getElementById("question");
+    const optionsEl = document.getElementById("options");
+    const nextBtn = document.getElementById("next-btn");
+    const resultEl = document.getElementById("result");
+    const resultRoleEl = document.getElementById("result-role");
+    const resultDescEl = document.getElementById("result-description");
+    const restartBtn = document.getElementById("restart-btn");
+    const progressTextEl = document.getElementById("progress-text");
+    const progressFillEl = document.getElementById("progress-bar-fill");
+    const allRolesContainer = document.getElementById("all-roles");
+
+    // ====== INITIALISATION ======
+
+    function resetScores() {
+      scores = {};
+      roleOrder.forEach(role => {
+        scores[role] = 0;
+      });
+    }
+
+    function startQuiz() {
+      resetScores();
+      currentQuestionIndex = 0;
+      resultEl.style.display = "none";
+      questionEl.style.display = "block";
+      optionsEl.style.display = "block";
+      nextBtn.style.display = "none";
+      updateProgress();
+      renderQuestion();
+    }
+
+    function updateProgress() {
+      const current = currentQuestionIndex + 1;
+      const total = questions.length;
+      progressTextEl.textContent = `Question ${current} of ${total}`;
+      const percent = (currentQuestionIndex / total) * 100;
+      progressFillEl.style.width = `${percent}%`;
+    }
+
+    function renderQuestion() {
+      const q = questions[currentQuestionIndex];
+      questionEl.textContent = q.text;
+
+      optionsEl.innerHTML = "";
+      q.options.forEach((opt, index) => {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.textContent = opt.text;
+        btn.dataset.role = opt.role;
+        btn.dataset.index = index;
+        btn.addEventListener("click", onOptionClick);
+        li.appendChild(btn);
+        optionsEl.appendChild(li);
+      });
+
+      nextBtn.style.display = "none";
+      updateProgress();
+    }
+
+    function onOptionClick(event) {
+      const selectedBtn = event.currentTarget;
+      const selectedRole = selectedBtn.dataset.role;
+
+      if (scores[selectedRole] == null) {
+        scores[selectedRole] = 0;
+      }
+      scores[selectedRole] += 1;
+
+      const allButtons = optionsEl.querySelectorAll("button");
+      allButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = "0.7";
+      });
+      selectedBtn.style.backgroundColor = "#d9ebff";
+
+      nextBtn.textContent =
+        currentQuestionIndex === questions.length - 1 ? "See My Result" : "Next";
+      nextBtn.style.display = "inline-block";
+    }
+
+    nextBtn.addEventListener("click", () => {
+      currentQuestionIndex++;
+      if (currentQuestionIndex < questions.length) {
+        renderQuestion();
+      } else {
+        showResult();
+      }
+    });
+
+    function showResult() {
+      questionEl.style.display = "none";
+      optionsEl.style.display = "none";
+      nextBtn.style.display = "none";
+      progressFillEl.style.width = "100%";
+      progressTextEl.textContent = "Done!";
+
+      const topRole = getTopRole();
+      resultRoleEl.textContent = topRole;
+      resultDescEl.textContent = mainRoleDescriptions[topRole] || "";
+
+      allRolesContainer.innerHTML = "";
+      roleOrder.forEach(role => {
+        const block = document.createElement("div");
+        block.className = "role-block";
+
+        const title = document.createElement("div");
+        title.className = "role-block-title";
+        title.textContent = role;
+
+        const text = document.createElement("div");
+        text.className = "role-block-text";
+        text.textContent = allRoleDescriptions[role] || "";
+
+        block.appendChild(title);
+        block.appendChild(text);
+        allRolesContainer.appendChild(block);
+      });
+
+      resultEl.style.display = "block";
+    }
+
+    function getTopRole() {
+      let bestRole = null;
+      let bestScore = -Infinity;
+      roleOrder.forEach(role => {
+        const score = scores[role] ?? 0;
+        if (score > bestScore) {
+          bestScore = score;
+          bestRole = role;
+        }
+      });
+      return bestRole;
+    }
+
+    restartBtn.addEventListener("click", startQuiz);
+
+    startQuiz();
+  </script>
+</body>
+</html>
